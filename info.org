@@ -1,0 +1,760 @@
+-*- mode: Org -*-
+#+STARTUP: showeverything
+
+_*SECOW Swedish corpus stuff*_
+
+NB: this could also be done with the original "confusibles3" systems and wopr, as opposed to the experiment descibed here which are in the "hoo" framework. But that has the disadvantage that we cannot introduce the INS/DEL errors later.
+
+* DONE TESTWEG experiment with a non-error classifier
+  CLOSED: [2014-07-13 Sun 19:47]
+
+* Files
+
+** Data files
+
+*** SECOW2012-00XS_TEXT.out.txt 				      :SECOW:
+
+** Scripts
+
+*** do_one.sh 							     :script:
+
+*Makes an error-classifier for the confusible, and a test set*
+
+Prepares error training data and a test file with errors. All
+parameters are hard coded inside the script. Confusibles are read from
+two files which should specify the same errors.
+
+*Train:*
+CFSET="cf_enett.txt"
+cat cf_enett.txt
+en ett
+
+The CFSET contains only info about the POS to filter, and to make
+errors on. Only replace errors are created, because the error
+classifier cannot do INS/DEL.
+
+...pf__          is the POS filtered file (instances)
+...pf__.ie___    is the file with errors inserted (on instances)
+...pf__.ie___.lg is the logfile for above file
+
+*Test:*
+TCFSET="enett.txt"
+cat enett.txt
+DET REP:1 en ett
+
+The TCFSET file can also specify INS/DEL errors, but these are not
+relevant in the plain confusible correction task.
+
+...cc___         is the testfile with confusible errors (sentences)
+...cc___.m2      is the m2 scorer file for above file
+
+*** do_hanhonom.sh
+
+*Other set:*
+pberck@margretetorp:~/uvt/thesis/software/SECOW$ cat > cf_hanhonom.txt
+han honom
+pberck@margretetorp:~/uvt/thesis/software/SECOW$ cat > hanhonom.txt
+PPRO REP:1 han honom
+
+*File indices:*
+PF, CC and IE set to "10", "010" and "010" respectively (hardcoded).
+
+*Creation:*
+bash do_hanhonom.sh
+Output in OUTPUT_21362.txt
+
+The following must be added to the timblserver config:
+IBASE="-i SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf10.ie010_-a1+D.ibase -a1 +D +vdb+di"
+NAME NAME 2 2 2
+^    ^-name in conll_se.py code
++name in tserver.ini
+
+SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf10
+SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf10.ie010
+SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf10.ie010_-a1+D.ibase
+SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf10.ie010_-a1+D.ibase.wgt
+SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf10.ie010.lg
+
+SECOW2012-01XS_TEXT.out.txt.1e3.cc010
+SECOW2012-01XS_TEXT.out.txt.1e3.cc010.m2
+
+*** do_errorclassifier.sh
+
+*Makes one error classifier*
+
+Code is similar to do_hanhonom.sh, without the test set creation.
+
+**** Example
+
+bash do_errorclassifier.sh SECOW2012-00XS_TEXT.out.txt.1e6 cf_hanhonom.txt
+Output in OUTPUT_22753.txt
+WINDOWING
+/home/pberck/uvt/wopr_nt/src/wopr -r window_lr -p lc:2,rc:2,it:1,filename:SECOW2012-00XS_TEXT.out.txt.1e6
+FILTER INSTANCES
+ python filter_instances.py -f SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2 -l2 -r2 -c cf_hanhonom.txt -e -i010 -F
+MAKE INSTANCE ERRORS
+ python make_instance_errors.py -f SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf010 -v cf_hanhonom.txt -c 0.05 -n 010 -F
+MAKE IBASE
+/home/pberck/uvt/wopr_nt/src/wopr -r make_ibase -p filename:SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf010.ie010,timbl:"-a1 +D"
+The following must be added to the timblserver config:
+IBASE="-i SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf010.ie010_-a1+D.ibase -a1 +D +vdb+di"
+NAME NAME 2 2 2
+
+wc -l SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2*
+ 16534752 SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2
+    52421 SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf010
+    52421 SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf010.ie010
+    20417 SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf010.ie010_-a1+D.ibase
+       26 SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf010.ie010_-a1+D.ibase.wgt
+    57676 SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf010.ie010.lg
+
+**** Example 2
+
+bash do_errorclassifier.sh SECOW2012-00XS_TEXT.out.txt.1e6 cf_hanhonom.txt 011 0 0.10
+
+Output in OUTPUT_22868.txt
+WINDOWING
+/home/pberck/uvt/wopr_nt/src/wopr -r window_lr -p lc:2,rc:2,it:1,filename:SECOW2012-00XS_TEXT.out.txt.1e6
+FILTER INSTANCES
+ python filter_instances.py -f SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2 -l2 -r2 -c cf_hanhonom.txt -e -i011 -F
+MAKE INSTANCE ERRORS
+ python make_instance_errors.py -f SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf011 -v cf_hanhonom.txt -c 0.10 -n 011 -F
+MAKE IBASE
+/home/pberck/uvt/wopr_nt/src/wopr -r make_ibase -p filename:SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf011.ie011,timbl:"-a1 +D"
+The following must be added to the timblserver config:
+IBASE="-i SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf011.ie011_-a1+D.ibase -a1 +D +vdb+di"
+NAME NAME 2 2 2
+
+("NAME NAME" should be "IBASE NAME")
+
+cat tserver_001.def (for the conll_se.py code).
+ENETT_ERR WORDPRED 2 2 2
+Connects the ENERR_ERR in the timblserver to the WORDPRED in the code, and specifies the LC, RC, and the type (2 is error classifier).
+
+cat tserver_001.ini (to start the timblserver)
+port=2000
+maxconn=32
+ENETT_ERR="-i SECOW2012-00XS_TEXT.out.txt.1e6.l2t1r2.pf00.ie000_-a1+D.ibase -a1 +D +vdb+di"
+Specifies the instancebase. The ENETT_ERR name is coupled to WORDPRED in the .def file.
+
+** Scripts for grammcorr
+
+Can these be changed into a version with a file for filter_instances.py?
+
+*** prepare.sh :script:
+
+*Makes a normal predictor*
+
+usage: bash prepare_c.sh FILE ID 
+hard coded: LINES, LC, RC, TIMBL
+
+Takes a FILE, windows it, takes random LINES instances, makes an instance base.
+
+*** prepare_c.sh :script:
+
+*Makes a confusible predictor*
+
+usage: bash prepare_c.sh FILE ID CAT LINES
+
+CAT is h0 (DETS) or h1 (PREPS)
+
+Takes a plain text file and windows it. Then does the filtering
+(filter_instances.py) on CAT, and takes LINES instances. Creates an
+instance base from the resulting instances. 
+
+*** prepare_cv.sh 						     :script:
+
+*Makes a confusible predictor from confusible file, non-error variant*
+
+usage: bash prepare_c.sh FILE ID CF_FILE LINES
+
+Takes a plain text file and windows it. Then does the filtering
+(filter_instances.py) on CF_FILE, and takes LINES instances. Creates
+an instance base from the resulting instances. The ID is used to
+distinguish between files with the same number of LINES, as they are
+randomly selected.
+
+**** Example
+
+bash prepare_cv.sh SECOW2012-00XS_TEXT.out.txt.1e6 HAHO cf_hanhonom.txt 10000
+WINDOWING
+15:09:14.96: Starting wopr 1.39.3
+[...]
+15:09:14.98: Ready.
+FILTER INSTANCES ON CAT
+Output file: SECOW2012-00XS_TEXT.out.txt.1e6.l2r2.pf010
+Wrote 52421 lines.
+RANDOM SELECTION, SAMPLEN.PY
+MAKE_IBASE
+15:10:40.96: Starting wopr 1.39.3
+[...]
+15:10:41.13: Ready.
+For tserver.ini: SECOW2012-00XS_TEXT.out.txt.1e6.l2r2.HAHO.pf010.P_-a1+D.ibase
+
+SECOW2012-00XS_TEXT.out.txt.1e6.l2r2.pf010           <- han/honom
+SECOW2012-00XS_TEXT.out.txt.1e6.l2r2.HAHO.pf010.P    <- 10000 instances
+
+*** prepare_pn.sh :script:
+
+*Not sure this one is of any use*
+
+*** prepare_cpn.sh :script:
+
+*Makes a pos-neg classifier for a confusible*
+
+usage: bash prepare_cpn.sh FILE ID CAT LINESP LINESN
+
+CAT is h0 (DETS) or h1 (PREPS)
+
+Windows the data, filters on the CAT, makes positive instances. Windows again with (t1), uses awk to shift, does an inverse pos-filter, creates negative examples. Combines the two instance files, and makes an instance base.
+* Test Experiment
+
+** Error variant
+
+One run on han-honom, as follows:
+
+For the instance base:
+bash do_errorclassifier.sh SECOW2012-00XS_TEXT.out.txt.1e6 cf_hanhonom.txt 011 0 0.10
+
+Output in:
+OUTPUT_24627.txt
+tserver_24627.ini
+tserver_24627.def
+
+Timblserver:
+timblserver --config=tserver_24627.ini --daemonize=no
+
+Test data came from:
+bash do_hanhonom.sh
+
+Run the test:
+python2.7 conll_se.py -S tserver_24627.def -f SECOW2012-01XS_TEXT.out.txt.1e3.cc010 -c wp -F -i TESTWEG
+
+Scorer:
+python ./release3.0/m2scorer/scripts/m2scorer.py -v SECOW2012-01XS_TEXT.out.txt.1e3.cc010_TESTWEG.sc SECOW2012-01XS_TEXT.out.txt.1e3.cc010.m2 > SECOW2012-01XS_TEXT.out.txt.1e3.cc010_TESTWEG.sc.score
+
+tail SECOW2012-01XS_TEXT.out.txt.1e3.cc010_TESTWEG.sc.score
+
+CORRECT EDITS  : 4
+PROPOSED EDITS : 5
+GOLD EDITS     : 7
+P = 0.8
+R = 0.571428571429
+F_0.5 = 0.740740740741
+Precision   : 0.8000
+Recall      : 0.5714
+F_0.5       : 0.7407
+
+python examine_score.py -f SECOW2012-01XS_TEXT.out.txt.1e3.cc010_TESTWEG.sc.score | tail -n3
+Gold {'REP': 7}
+Corr {'REP': 4}
+Edit {'REP': 5}
+
+python score_per_cat.py -c SECOW2012-01XS_TEXT.out.txt.1e3.cc010_TESTWEG.sc.score -m SECOW2012-01XS_TEXT.out.txt.1e3.cc010.m2
+Gold {'PPRO': 7}
+Corr {'PPRO': 4}
+PPRO           7     4 57.14
+
+** Non-error variant
+
+Data:
+
+/bash prepare_cv.sh SECOW2012-00XS_TEXT.out.txt.1e6 HAHO cf_hanhonom.txt 10000/
+
+(no OUTPUT file for this script)
+
+Output of a run:
+#+BEGIN_SRC txt
+tserver_24937.def
+tserver_24937.ini
+
+Timblserver:
+timblserver --config=tserver_24937.ini --daemonize=no
+
+Experiment:
+python2.7 conll_se.py -S tserver_24937.def -f SECOW2012-01XS_TEXT.out.txt.1e3.cc010 -c wp  -i TESTWEGNOERR
+
+Scorer:
+python ./release3.0/m2scorer/scripts/m2scorer.py -v SECOW2012-01XS_TEXT.out.txt.1e3.cc010_TESTWEGNOERR.sc SECOW2012-01XS_TEXT.out.txt.1e3.cc010.m2 > SECOW2012-01XS_TEXT.out.txt.1e3.cc010_TESTWEGNOERR.sc.score
+
+tail SECOW2012-01XS_TEXT.out.txt.1e3.cc010_TESTWEGNOERR.sc.score
+
+CORRECT EDITS  : 7
+PROPOSED EDITS : 11
+GOLD EDITS     : 7
+P = 0.636363636364
+R = 1.0
+F_0.5 = 0.686274509804
+Precision   : 0.6364
+Recall      : 1.0000
+F_0.5       : 0.6863
+
+python examine_score.py -f SECOW2012-01XS_TEXT.out.txt.1e3.cc010_TESTWEGNOERR.sc.score | tail -n3
+Gold {'REP': 7}
+Corr {'REP': 7}
+Edit {'REP': 11}
+
+python score_per_cat.py -c SECOW2012-01XS_TEXT.out.txt.1e3.cc010_TESTWEGNOERR.sc.score -m SECOW2012-01XS_TEXT.out.txt.1e3.cc010.m2
+Gold {'PPRO': 7}
+Corr {'PPRO': 7}
+PPRO           7     7 100.00
+#+END_SRC
+
+*** Bigger test data
+
+Test data:
+/bash do_maketest.sh SECOW2012-01XS_TEXT.out.txt.10e3 hanhonom.txt 0.05 010/
+Output in OUTPUT_25102.txt
+
+Output from run:
+#+BEGIN_SRC txt
+python2.7 conll_se.py -S tserver_24937.def -f SECOW2012-01XS_TEXT.out.txt.10e3.cc010 -c wp -i TESTWEGNOERR
+See ./gc_25119.log for debug info.
+
+python ./release3.0/m2scorer/scripts/m2scorer.py -v SECOW2012-01XS_TEXT.out.txt.10e3.cc010_TESTWEGNOERR.sc SECOW2012-01XS_TEXT.out.txt.10e3.cc010.m2 > SECOW2012-01XS_TEXT.out.txt.10e3.cc010_TESTWEGNOERR.sc.score
+
+tail SECOW2012-01XS_TEXT.out.txt.10e3.cc010_TESTWEGNOERR.sc.score
+
+CORRECT EDITS  : 59
+PROPOSED EDITS : 169
+GOLD EDITS     : 70
+P = 0.349112426036
+R = 0.842857142857
+F_0.5 = 0.395442359249
+Precision   : 0.3491
+Recall      : 0.8429
+F_0.5       : 0.3954
+#+END_SRC
+
+*AND*
+
+/python2.7 conll_se.py -S tserver_24627.def -f SECOW2012-01XS_TEXT.out.txt.10e3.cc010 -c wp -F -i TESTWEG/
+See ./gc_25173.log for debug info.
+
+/tail SECOW2012-01XS_TEXT.out.txt.10e3.cc010_TESTWEG.sc.score/
+CORRECT EDITS  : 50
+PROPOSED EDITS : 55
+GOLD EDITS     : 70
+P = 0.909090909091
+R = 0.714285714286
+F_0.5 = 0.862068965517
+Precision   : 0.9091
+Recall      : 0.7143
+F_0.5       : 0.8621
+
+* Rarity (and fancypants)
+
+** Data
+
+pberck@rarity:/vol/tensusers/pberck/SECOW
+wc -l *
+  19,000,000 SECOW2011X_RAW.utf8.txt.h19e6
+  20,000,000 SECOW2011X_RAW.utf8.txt.h20e6
+     500,000 SECOW2011X_RAW.utf8.txt.h20e6.t500e3
+
+** Datasets
+
+bash do_errorclassifier.sh SECOW2011X_RAW.utf8.txt.h19e6 cf_hanhonom.txt 001 0 0.10
+Output in OUTPUT_25327.txt
+#+BEGIN_SRC txt
+WINDOWING
+/vol/customopt/uvt-ru/bin/wopr -r window_lr -p lc:2,rc:2,it:1,filename:SECOW2011X_RAW.utf8.txt.h19e6
+FILTER INSTANCES
+ python filter_instances.py -f SECOW2011X_RAW.utf8.txt.h19e6.l2t1r2 -l2 -r2 -c cf_hanhonom.txt -e -i001 -F
+MAKE INSTANCE ERRORS
+ python make_instance_errors.py -f SECOW2011X_RAW.utf8.txt.h19e6.l2t1r2.pf001 -v cf_hanhonom.txt -c 0.10 -n 001 -F
+MAKE IBASE
+/vol/customopt/uvt-ru/bin/wopr -r make_ibase -p filename:SECOW2011X_RAW.utf8.txt.h19e6.l2t1r2.pf001.ie001,timbl:"-a1 +D"
+tserver.ini in tserver_25327.ini
+CREATING TSERVER.INI
+EXECUTE: timblserver --config=tserver_25327.ini --daemonize=no
+tserver.def in tserver_25327.def
+#+END_SRC
+
+*cf files not found, created, and again*
+
+/bash do_errorclassifier.sh SECOW2011X_RAW.utf8.txt.h19e6 cf_hanhonom.txt 001 0 0.10/
+Output in OUTPUT_717.txt
+
+#+BEGIN_SRC txt
+WINDOWING
+/vol/customopt/uvt-ru/bin/wopr -r window_lr -p lc:2,rc:2,it:1,filename:SECOW2011X_RAW.utf8.txt.h19e6
+FILTER INSTANCES
+ python filter_instances.py -f SECOW2011X_RAW.utf8.txt.h19e6.l2t1r2 -l2 -r2 -c cf_hanhonom.txt -e -i001 -F
+MAKE INSTANCE ERRORS
+ python make_instance_errors.py -f SECOW2011X_RAW.utf8.txt.h19e6.l2t1r2.pf001 -v cf_hanhonom.txt -c 0.10 -n 001 -F
+MAKE IBASE
+/vol/customopt/uvt-ru/bin/wopr -r make_ibase -p filename:SECOW2011X_RAW.utf8.txt.h19e6.l2t1r2.pf001.ie001,timbl:"-a1 +D"
+tserver.ini in tserver_717.ini
+CREATING TSERVER.INI
+EXECUTE: timblserver --config=tserver_717.ini --daemonize=no
+tserver.def in tserver_717.def
+#+END_SRC
+
+*MLER is monolith error, does that contain more than all confusibles? SHould it not b all-confusibles in one classifier? I mean, is it supposed to be an all-word classifier?*
+
+*Test data*
+
+(note that 0.05 is 5%)
+
+/bash do_maketest.sh SECOW2011X_RAW.utf8.txt.h20e6.t10e3 hanhonom.txt 0.05 001/
+
+/more OUTPUT_29023.txt/
+#+BEGIN_SRC txt
+python insert_confusibles_m2.py -f SECOW2011X_RAW.utf8.txt.h20e6.t10e3 -c hanhonom.txt -p 0.05 -n 001
+Made 25 changes out of 26 possible changes, grand total = 549
+Skipped 0  possible changes in the skipped lines.
+Percentage 0.0455373406193
+REP 25
+DEL 0
+INS 0
+Output in SECOW2011X_RAW.utf8.txt.h20e6.t10e3.cc001 and SECOW2011X_RAW.utf8.txt.h20e6.t10e3.cc001.m2
+#+END_SRC
+
+*and*
+
+/bash do_maketest.sh SECOW2011X_RAW.utf8.txt.h20e6.t500e3 hanhonom.txt 0.005 002/
+Output in OUTPUT_10880.txt
+
+#+BEGIN_SRC txt
+Made 155 changes out of 156 possible changes, grand total = 28267
+Skipped 0  possible changes in the skipped lines.
+Percentage 0.005483425903
+REP 155
+DEL 0
+INS 0
+Output in SECOW2011X_RAW.utf8.txt.h20e6.t500e3.cc002 and SECOW2011X_RAW.utf8.txt.h20e6.t500e3.cc002.m2
+#+END_SRC
+
+** RUN
+
+/python2.7 conll_se.py -S tserver_717.def -c wp -i TESTRUN000 -f SECOW2011X_RAW.utf8.txt.h20e6.t10e3.cc001/
+#+BEGIN_SRC txt
+WE NEED THE PATTERN.EN LIBRARY!
+20140714 15:15:01 START conll2014.py
+20140714 15:15:01 See ./gc_18857.log for debug info.
+...
+20140714 15:31:00 Time taken: 0:15:59
+20140714 15:31:00 Processed 181708 instances, in 17 threads.
+20140714 15:31:00 Time per instance: 0.00527769828516
+20140714 15:31:00 Output in SECOW2011X_RAW.utf8.txt.h20e6.t10e3.cc001_TESTRUN000.sc
+20140714 15:31:00 {'NOP': 181682, 'WORDPRED': 26}
+20140714 15:31:00 See ./gc_18857.log for debug info.
+#+END_SRC
+
+python ../conll2014st/release3.0/m2scorer/scripts/m2scorer.py -v SECOW2011X_RAW.utf8.txt.h20e6.t10e3.cc001_TESTRUN000.sc SECOW2011X_RAW.utf8.txt.h20e6.t10e3.cc001.m2 > SECOW2011X_RAW.utf8.txt.h20e6.t10e3.cc001_TESTRUN000.sc.score
+
+/tail SECOW2011X_RAW.utf8.txt.h20e6.t10e3.cc001_TESTRUN000.sc.score/
+CORRECT EDITS  : 23
+PROPOSED EDITS : 26
+GOLD EDITS     : 25
+P = 0.884615384615
+R = 0.92
+F_0.5 = 0.891472868217
+Precision   : 0.8846
+Recall      : 0.9200
+F_0.5       : 0.8915
+
+*and*
+
+python2.7 conll_se.py -S tserver_717.def -c wp -i TESTRUN000 -f SECOW2011X_RAW.utf8.txt.h20e6.t500e3.cc002
+WE NEED THE PATTERN.EN LIBRARY!
+20140714 15:42:24 START conll2014.py
+20140714 15:42:24 See ./gc_02118.log for debug info.
+...
+*rest on fancypants, rarity seems to have a problem? Bug in timblserver? Just slow...*
+
+pberck@fancypants:/vol/tensusers/pberck/SECOW$ python ../conll2014st/release3.0/m2scorer/scripts/m2scorer.py -v SECOW2011X_RAW.utf8.txt.h20e6.t500e3.cc002_TESTRUN000.sc SECOW2011X_RAW.utf8.txt.h20e6.t500e3.cc002.m2 > SECOW2011X_RAW.utf8.txt.h20e6.t500e3.cc002_TESTRUN000.sc.score                                         
+/tail SECOW2011X_RAW.utf8.txt.h20e6.t500e3.cc002_TESTRUN000.sc.score/
+
+CORRECT EDITS  : 121
+PROPOSED EDITS : 459
+GOLD EDITS     : 155
+P = 0.263616557734
+R = 0.78064516129
+F_0.5 = 0.303867403315
+Precision   : 0.2636
+Recall      : 0.7806
+F_0.5       : 0.3039
+
+pberck@fancypants:/vol/tensusers/pberck/SECOW$ #timblserver --config=tserver_717.ini --daemonize=no
+
+* OLD
+
+*t-error or error ? There are two versions of the confusibles*
+
+** TODO Which version of the correction algorithm is used?
+
+head -n 1000000 SECOW2011X_RAW.utf8.txt.h19e6 > SECOW2011X_RAW.utf8.txt.h1e6
+bash do_maketest.sh SECOW2011X_RAW.utf8.txt.h1e6 hanhonom.txt 0.05 001
+Output in OUTPUT_7027.txt
+...
+Made 2801 changes out of 2861 possible changes, grand total = 56125
+Skipped 0  possible changes in the skipped lines.
+Percentage 0.0499064587973
+REP 2801
+DEL 0
+INS 0
+Output in SECOW2011X_RAW.utf8.txt.h1e6.cc001 and SECOW2011X_RAW.utf8.txt.h1e6.cc001.m2
+
+bash do_mler_10000.sh
+cat STATCF.MLER.10000.txt
+MLER10000 l2t1r2_-a1+D 181708    549     25    17     8     0     5    17     5     8   519 97.63 77.27 68.00 72.34 SECOW2011X_RAW.utf8.txt.h1e6.cc001.1000000 1000000 SECOW2011X_RAW.utf8.txt.h20e6.t10e3.cc001 max_ent:5,max_distr:100,triggerfile:cf_hanhonom.txt
+MLER10001 l2t1r2_-a4+D 181708    549     25    19     6     0     6    19     6     6   518 97.81 76.00 76.00 76.00 SECOW2011X_RAW.utf8.txt.h1e6.cc001.1000000 1000000 SECOW2011X_RAW.utf8.txt.h20e6.t10e3.cc001 max_ent:5,max_distr:100,triggerfile:cf_hanhonom.txt
+
+* MLER_11000 (fancypants)
+
+*With cf_swedish0.txt, 3 confusibles.*
+
+Training data is made "like an test set", that is, plain text with errors.
+
+/bash do_maketest.sh SECOW2011X_RAW.utf8.txt.h1e6 swedish0.txt 0.05 010/
+Output in OUTPUT_23763.txt
+
+/tail OUTPUT_23763.txt/
+python insert_confusibles_m2.py -f SECOW2011X_RAW.utf8.txt.h1e6 -c swedish0.txt -p 0.05 -n 010
+Made 9049 changes out of 9243 possible changes, grand total = 186775
+Skipped 0  possible changes in the skipped lines.
+Percentage 0.0484486681836
+REP 9049
+DEL 0
+INS 0
+Output in SECOW2011X_RAW.utf8.txt.h1e6.cc010 and SECOW2011X_RAW.utf8.txt.h1e6.cc010.m2
+
+/bash do_maketest.sh SECOW2011X_RAW.utf8.txt.h20e6.t500e3 swedish0.txt 0.005 010/
+Output in OUTPUT_16001.txt
+
+/tail OUTPUT_16001.txt/
+python insert_confusibles_m2.py -f SECOW2011X_RAW.utf8.txt.h20e6.t500e3 -c swedish0.txt -p 0.005 -n 010
+Made 445 changes out of 446 possible changes, grand total = 94115
+Skipped 0  possible changes in the skipped lines.
+Percentage 0.00472825798226
+REP 445
+DEL 0
+INS 0
+Output in SECOW2011X_RAW.utf8.txt.h20e6.t500e3.cc010 and SECOW2011X_RAW.utf8.txt.h20e6.t500e3.cc010.m2
+
+/bash do_mler_11000.sh/
+
+/cat STATCF.MLER.11000.txt | awk -f p5org.awk/
+
+(confidence 0.9/0.95/0.99 and igtree/tribl2 loop)
+
+| Run       | Alg |   Acc |  Pre |  Rec | F1.0 | Confs | Errs | Err% | TP |  FP |  FN |    TN |
+|-----------+-----+-------+------+------+------+-------+------+------+----+-----+-----+-------|
+| MLER11000 | a1  | 99.03 | 5.20 | 6.07 | 5.60 | 94115 |  445 | 0.47 | 27 | 492 | 418 | 93178 |
+| MLER11001 | a4  | 98.73 | 4.82 | 8.99 | 6.27 | 94115 |  445 | 0.47 | 40 | 790 | 405 | 92880 |
+| MLER11002 | a1  | 99.03 | 4.28 | 4.94 | 4.59 | 94115 |  445 | 0.47 | 22 | 492 | 423 | 93178 |
+| MLER11003 | a4  | 98.73 | 4.47 | 8.31 | 5.82 | 94115 |  445 | 0.47 | 37 | 790 | 408 | 92880 |
+| MLER11004 | a1  | 99.03 | 4.28 | 4.94 | 4.59 | 94115 |  445 | 0.47 | 22 | 492 | 423 | 93178 |
+| MLER11005 | a4  | 98.73 | 4.47 | 8.31 | 5.82 | 94115 |  445 | 0.47 | 37 | 790 | 408 | 92880 |
+
+Older, this was confidence 0:
+| MLER11000 | a1  | 98.51 | 5.06 | 12.13 | 7.14 | 94115 |  445 | 0.47 | 54 | 1013 | 391 | 92657 |
+| MLER11001 | a4  | 98.27 | 5.10 | 15.06 | 7.61 | 94115 |  445 | 0.47 | 67 | 1248 | 378 | 92422 |
+
+If the confidence:0 only gets 54 TPs, the stricter confidence settings
+will only lead to less.
+
+* MLER_11010 (fancypants)
+
+*same as older MLER_11000 but LC:4 and RC:4, confidence:0*
+
+/cat STATCF.MLER.11010.txt | awk -f p5org.awk/
+
+confidence:0
+| Run       | Alg |   Acc |  Pre |   Rec | F1.0 | Confs | Errs | Err% | TP |   FP |  FN |    TN |
+| MLER11010 | a1  | 98.51 | 5.06 | 12.13 | 7.14 | 94115 |  445 | 0.47 | 54 | 1014 | 391 | 92656 |
+| MLER11011 | a4  | 97.86 | 3.89 | 14.83 | 6.16 | 94115 |  445 | 0.47 | 66 | 1632 | 379 | 92038 |
+
+* MLER_11020 (fancypants)
+
+*same as newer MLER_11000 but LC:4 and RC:4*
+
+(confidence 0.9/0.95/0.99 and igtree/tribl2 loop)
+
+cat STATCF.MLER.11020.txt | awk -f p5org.awk
+| Run       | Alg |   Acc |  Pre |   Rec | F1.0 | Confs | Errs | Err% | TP |   FP |  FN |    TN |
+|-----------+-----+-------+------+-------+------+-------+------+------+----+------+-----+-------|
+| MLER11020 | a1  | 99.03 | 5.19 |  6.07 | 5.60 | 94115 |  445 | 0.47 | 27 |  493 | 418 | 93177 |
+| MLER11021 | a4  | 98.24 | 3.60 | 10.56 | 5.37 | 94115 |  445 | 0.47 | 47 | 1258 | 398 | 92412 |
+| MLER11022 | a1  | 99.03 | 4.27 |  4.94 | 4.58 | 94115 |  445 | 0.47 | 22 |  493 | 423 | 93177 |
+| MLER11023 | a4  | 98.24 | 3.45 | 10.11 | 5.15 | 94115 |  445 | 0.47 | 45 | 1258 | 400 | 92412 |
+| MLER11024 | a1  | 99.03 | 4.27 |  4.94 | 4.58 | 94115 |  445 | 0.47 | 22 |  493 | 423 | 93177 |
+| MLER11025 | a4  | 98.24 | 3.45 | 10.11 | 5.15 | 94115 |  445 | 0.47 | 45 | 1258 | 400 | 92412 |
+
+
+* ML_11000.sh (fancypants)
+
+*Like mler_11000.sh*
+
+/cat STATCF.ML.11000.txt | awk -f p5mlorg.awk/
+
+(confidence 0.9/0.95/0.99 and igtree/tribl2 loop)
+
+| Run     | Alg |   Acc |  Pre |  Rec | F1.0 | Confs | Errs | Err% | TP |    FP |  FN |    TN |
+| ML11000 | a1  | 87.35 | 0.05 | 1.35 | 0.10 | 94115 |  445 | 0.47 |  6 | 11470 | 439 | 82200 |
+| ML11001 | a4  | 76.99 | 0.09 | 4.49 | 0.18 | 94115 |  445 | 0.47 | 20 | 21229 | 425 | 72441 |
+| ML11002 | a1  | 87.60 | 0.04 | 1.12 | 0.09 | 94115 |  445 | 0.47 |  5 | 11232 | 440 | 82438 |
+| ML11003 | a4  | 77.22 | 0.10 | 4.49 | 0.19 | 94115 |  445 | 0.47 | 20 | 21012 | 425 | 72658 |
+| ML11004 | a1  | 87.70 | 0.04 | 1.12 | 0.09 | 94115 |  445 | 0.47 |  5 | 11132 | 440 | 82538 |
+| ML11005 | a4  | 77.31 | 0.10 | 4.49 | 0.19 | 94115 |  445 | 0.47 | 20 | 20932 | 425 | 72738 |
+
+* MLER11000 as HOO (on cheerilee)
+
+/bash do_errorclassifier.sh SECOW2011X_RAW.utf8.txt.h19e6 cf_swedish0.txt 010 0 0.10/
+Output in OUTPUT_31518.txt
+...
+EXECUTE: timblserver --config=tserver_31518.ini --daemonize=no
+tserver.def in tserver_31518.def
+
+/python2.7 conll_se.py -S tserver_31518.def -c wp -i TESTRUN010 -f SECOW2011X_RAW.utf8.txt.h20e6.t500e3.cc010/
+
+20140715 16:04:10 See ./gc_24110.log for debug info.
+...
+
+*BUG* there is a word in [han honom] statement which needs to be changed. Also, seperate ibases could be good.
+
+* mler_12000
+
+*100e3 test*
+
+/bash do_maketest.sh SECOW2011X_RAW.utf8.txt.h20e6.t100e3 swedish0.txt 0.005 010/
+#+BEGIN_SRC txt
+Output in OUTPUT_26295.txt
+...
+Made 89 changes out of 89 possible changes, grand total = 18767
+Skipped 0  possible changes in the skipped lines.
+Percentage 0.00474236692066
+REP 89
+DEL 0
+INS 0
+Output in SECOW2011X_RAW.utf8.txt.h20e6.t100e3.cc010 and SECOW2011X_RAW.utf8.txt.h20e6.t100e3.cc010.m2
+#+END_SRC
+
+/bash do_mler_12000.sh/
+
+| Run       | Alg |   Acc |  Pre |  Rec | F1.0 | Confs | Errs | Err% | TP |  FP | FN |    TN |
+| MLER12000 | a1  | 98.99 | 3.70 | 4.49 | 4.06 | 18767 |   89 | 0.47 |  4 | 104 | 85 | 18574 |
+| MLER12001 | a4  | 98.59 | 3.21 | 6.74 | 4.35 | 18767 |   89 | 0.47 |  6 | 181 | 83 | 18497 |
+| MLER12002 | a1  | 98.99 | 3.70 | 4.49 | 4.06 | 18767 |   89 | 0.47 |  4 | 104 | 85 | 18574 |
+| MLER12003 | a4  | 98.59 | 3.21 | 6.74 | 4.35 | 18767 |   89 | 0.47 |  6 | 181 | 83 | 18497 |
+| MLER12004 | a1  | 98.99 | 3.70 | 4.49 | 4.06 | 18767 |   89 | 0.47 |  4 | 104 | 85 | 18574 |
+| MLER12005 | a4  | 98.59 | 3.21 | 6.74 | 4.35 | 18767 |   89 | 0.47 |  6 | 181 | 83 | 18497 |
+
+Hypothesis was that less testing data would give better results. Not so.
+
+* mler_13000
+
+*2 million lines of training data*
+
+/head -n 2000000 SECOW2011X_RAW.utf8.txt.h19e6 > SECOW2011X_RAW.utf8.txt.h2e6/
+
+/bash do_maketest.sh SECOW2011X_RAW.utf8.txt.h2e6 swedish0.txt 0.05 010/
+Output in OUTPUT_30947.txt
+#+BEGIN_SRC txt
+Made 18189 changes out of 18534 possible changes, grand total = 373528
+Skipped 0  possible changes in the skipped lines.
+Percentage 0.0486951446746
+REP 18189
+DEL 0
+INS 0
+Output in SECOW2011X_RAW.utf8.txt.h2e6.cc010 and SECOW2011X_RAW.utf8.txt.h2e6.cc010.m2
+#+END_SRC
+
+/cat STATCF.MLER.13000.txt | awk -f p5org.awk/
+
+| Run       | Alg |   Acc |  Pre |  Rec | F1.0 | Confs | Errs | Err% | TP |  FP | FN |    TN |
+|-----------+-----+-------+------+------+------+-------+------+------+----+-----+----+-------|
+| MLER13000 | a1  | 98.99 | 1.92 | 2.25 | 2.07 | 18767 |   89 | 0.47 |  2 | 102 | 87 | 18576 |
+| MLER13001 | a4  | 98.68 | 1.82 | 3.37 | 2.36 | 18767 |   89 | 0.47 |  3 | 162 | 86 | 18516 |
+| MLER13002 | a1  | 98.99 | 0.97 | 1.12 | 1.04 | 18767 |   89 | 0.47 |  1 | 102 | 88 | 18576 |
+| MLER13003 | a4  | 98.68 | 1.82 | 3.37 | 2.36 | 18767 |   89 | 0.47 |  3 | 162 | 86 | 18516 |
+| MLER13004 | a1  | 98.99 | 0.97 | 1.12 | 1.04 | 18767 |   89 | 0.47 |  1 | 102 | 88 | 18576 |
+| MLER13005 | a4  | 98.68 | 1.82 | 3.37 | 2.36 | 18767 |   89 | 0.47 |  3 | 162 | 86 | 18516 |
+
+* mler_14000
+
+*2 million lines of training and 10% errors in training data*
+
+/bash do_maketest.sh SECOW2011X_RAW.utf8.txt.h2e6 swedish0.txt 0.10 020/
+Output in OUTPUT_22989.txt
+#+BEGIN_SRC txt
+tail OUTPUT_22989.txt
+python insert_confusibles_m2.py -f SECOW2011X_RAW.utf8.txt.h2e6 -c swedish0.txt -p 0.10 -n 020
+Made 35905 changes out of 37239 possible changes, grand total = 373528
+Skipped 0  possible changes in the skipped lines.
+Percentage 0.0961239853505
+REP 35905
+DEL 0
+INS 0
+Output in SECOW2011X_RAW.utf8.txt.h2e6.cc020 and SECOW2011X_RAW.utf8.txt.h2e6.cc020.m2
+#+END_SRC
+
+/cat STATCF.MLER.14000.txt | awk -f p5org.awk/
+
+| Run       | Alg |   Acc |  Pre |   Rec | F1.0 | Confs | Errs | Err% | TP |  FP | FN |    TN |
+|-----------+-----+-------+------+-------+------+-------+------+------+----+-----+----+-------|
+| MLER14000 | a1  | 98.65 | 5.88 | 12.36 | 7.97 | 18767 |   89 | 0.47 | 11 | 176 | 78 | 18502 |
+| MLER14001 | a4  | 98.11 | 3.82 | 12.36 | 5.84 | 18767 |   89 | 0.47 | 11 | 277 | 78 | 18401 |
+| MLER14002 | a1  | 98.64 | 5.38 | 11.24 | 7.27 | 18767 |   89 | 0.47 | 10 | 176 | 79 | 18502 |
+| MLER14003 | a4  | 98.11 | 3.82 | 12.36 | 5.84 | 18767 |   89 | 0.47 | 11 | 277 | 78 | 18401 |
+| MLER14004 | a1  | 98.64 | 5.38 | 11.24 | 7.27 | 18767 |   89 | 0.47 | 10 | 176 | 79 | 18502 |
+| MLER14005 | a4  | 98.11 | 3.82 | 12.36 | 5.84 | 18767 |   89 | 0.47 | 11 | 277 | 78 | 18401 |
+
+* mler_15000
+
+*2 million and 20% errors*
+
+/bash do_maketest.sh SECOW2011X_RAW.utf8.txt.h2e6 swedish0.txt 0.20 030/
+Output in OUTPUT_8243.txt
+#+BEGIN_SRC txt
+Made 69402 changes out of 74373 possible changes, grand total = 373528
+Skipped 0  possible changes in the skipped lines.
+Percentage 0.185801332163
+REP 69402
+DEL 0
+INS 0
+Output in SECOW2011X_RAW.utf8.txt.h2e6.cc030 and SECOW2011X_RAW.utf8.txt.h2e6.cc030.m2
+#+END_SRC
+
+/cat STATCF.MLER.15000.txt | awk -f p5org.awk/
+
+| Run       | Alg |   Acc |  Pre |   Rec | F1.0 | Confs | Errs | Err% | TP |  FP | FN |    TN |
+|-----------+-----+-------+------+-------+------+-------+------+------+----+-----+----+-------|
+| MLER15000 | a1  | 97.88 | 1.88 |  6.74 | 2.93 | 18767 |   89 | 0.47 |  6 | 314 | 83 | 18364 |
+| MLER15001 | a4  | 96.78 | 1.87 | 11.24 | 3.20 | 18767 |   89 | 0.47 | 10 | 526 | 79 | 18152 |
+| MLER15002 | a1  | 97.88 | 1.57 |  5.62 | 2.45 | 18767 |   89 | 0.47 |  5 | 314 | 84 | 18364 |
+| MLER15003 | a4  | 96.78 | 1.87 | 11.24 | 3.20 | 18767 |   89 | 0.47 | 10 | 526 | 79 | 18152 |
+| MLER15004 | a1  | 97.88 | 1.57 |  5.62 | 2.45 | 18767 |   89 | 0.47 |  5 | 314 | 84 | 18364 |
+| MLER15005 | a4  | 96.78 | 1.87 | 11.24 | 3.20 | 18767 |   89 | 0.47 | 10 | 526 | 79 | 18152 |
+
+*That is already worse*
+
+* mler_16000
+
+*2% errors*
+
+/bash do_maketest.sh SECOW2011X_RAW.utf8.txt.h2e6 swedish0.txt 0.02 040/
+
+Output in OUTPUT_361.txt
+#+BEGIN_SRC txt
+Made 7379 changes out of 7441 possible changes, grand total = 373528
+Skipped 0  possible changes in the skipped lines.
+Percentage 0.0197548778137
+REP 7379
+DEL 0
+INS 0
+Output in SECOW2011X_RAW.utf8.txt.h2e6.cc040 and SECOW2011X_RAW.utf8.txt.h2e6.cc040.m2
+#+END_SRC
+
+/bash do_mler_16000.sh/
+| Run       | Alg |   Acc |  Pre |  Rec | F1.0 | Confs | Errs | Err% | TP | FP | FN |    TN |
+|-----------+-----+-------+------+------+------+-------+------+------+----+----+----+-------|
+| MLER16000 | a1  | 99.29 | 9.26 | 5.62 | 6.99 | 18767 |   89 | 0.47 |  5 | 49 | 84 | 18629 |
+| MLER16001 | a4  | 99.16 | 6.41 | 5.62 | 5.99 | 18767 |   89 | 0.47 |  5 | 73 | 84 | 18605 |
+| MLER16002 | a1  | 99.29 | 9.26 | 5.62 | 6.99 | 18767 |   89 | 0.47 |  5 | 49 | 84 | 18629 |
+| MLER16003 | a4  | 99.16 | 6.41 | 5.62 | 5.99 | 18767 |   89 | 0.47 |  5 | 73 | 84 | 18605 |
+| MLER16004 | a1  | 99.29 | 9.26 | 5.62 | 6.99 | 18767 |   89 | 0.47 |  5 | 49 | 84 | 18629 |
+| MLER16005 | a4  | 99.16 | 6.41 | 5.62 | 5.99 | 18767 |   89 | 0.47 |  5 | 73 | 84 | 18605 |
+
